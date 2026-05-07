@@ -453,6 +453,28 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn authority_form_uri_does_not_panic() {
+        // Authority-form URIs (e.g. "localhost:8080") have authority but no scheme.
+        // Per RFC 3986, a URI with authority always requires a scheme; authority-form
+        // is only valid for CONNECT requests (RFC 7230 §5.3.3).
+        // ServeDir should reject these gracefully instead of panicking in
+        // append_slash_on_path when rebuilding the URI via Uri::from_parts.
+        let svc = ServeDir::new(&ASSETS_DIR);
+
+        let uri: Uri = "localhost:8080".parse().unwrap();
+        assert!(uri.authority().is_some());
+        assert!(uri.scheme().is_none());
+
+        let req = Request::builder()
+            .uri(uri)
+            .body(http_body_util::Empty::<Bytes>::new())
+            .unwrap();
+        let res = svc.oneshot(req).await.unwrap();
+
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
     async fn access_space_percent_encoded_uri_path() {
         let svc = ServeDir::new(&ASSETS_DIR);
 
