@@ -71,6 +71,12 @@ impl<ReqBody> Service<Request<ReqBody>> for ServeDir {
     }
 
     fn call(&mut self, req: Request<ReqBody>) -> Self::Future {
+        if req.uri().authority().is_some() && req.uri().scheme().is_none() {
+            return ResponseFuture {
+                inner: Some(Inner::Invalid),
+            };
+        }
+
         // build and validate the path
         let path = req.uri().path();
         let path = path.trim_start_matches('/');
@@ -159,9 +165,9 @@ fn append_slash_on_path(uri: Uri) -> Uri {
     let mut builder = Uri::builder();
     if let Some(scheme) = scheme {
         builder = builder.scheme(scheme);
-    }
-    if let Some(authority) = authority {
-        builder = builder.authority(authority);
+        if let Some(authority) = authority {
+            builder = builder.authority(authority);
+        }
     }
     if let Some(path_and_query) = path_and_query {
         if let Some(query) = path_and_query.query() {
